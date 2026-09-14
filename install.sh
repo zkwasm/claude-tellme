@@ -27,6 +27,10 @@ curl -s -m 10 -G "https://api.day.app/$KEY/" \\
   --data-urlencode "title=Claude Code · \$PROJECT" \\
   --data-urlencode "body=\$MSG" \\
   --data-urlencode "group=claude" >/dev/null 2>&1 || true
+# Also show a local macOS notification when available
+if command -v osascript >/dev/null 2>&1; then
+  osascript -e "display notification \"\$(echo "\$MSG" | sed 's/\"/\\\\\"/g')\" with title \"Claude Code · \$PROJECT\" sound name \"Glass\"" >/dev/null 2>&1 || true
+fi
 [ "\$MODE" = "always" ] || rm -f "\$STATE"
 exit 0
 EOF

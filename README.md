@@ -1,6 +1,6 @@
 # tellme — Claude Code → phone push via Bark
 
-Walk away from a long-running Claude Code task and get a push notification on your iPhone the moment it finishes.
+Walk away from a long-running Claude Code task and get a push notification on your iPhone — plus a native macOS notification on your Mac — the moment it finishes.
 
 | Command | What it does |
 |---|---|
@@ -29,7 +29,7 @@ You'll get an "Installed ✅" push. **No Claude Code restart needed** — hooks 
 
 ## How it works
 
-`/tellme` just writes a tiny state file. A global Claude Code `Stop` hook (`~/.claude/bark/notify.sh`) runs after every turn, checks the state for the current session, and calls the Bark HTTP API with `curl`. In `once` mode the state deletes itself after the first push. State is per-session; subagent stops are ignored; `curl` has a 10 s timeout and never blocks Claude.
+`/tellme` just writes a tiny state file. A global Claude Code `Stop` hook (`~/.claude/bark/notify.sh`) runs after every turn, checks the state for the current session, and calls the Bark HTTP API with `curl` (and shows a native macOS notification via `osascript` when available). In `once` mode the state deletes itself after the first push. State is per-session; subagent stops are ignored; `curl` has a 10 s timeout and never blocks Claude.
 
 Files installed:
 - `~/.claude/bark/notify.sh` — the Stop hook
