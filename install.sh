@@ -40,8 +40,8 @@ EOF
 
 cat > ~/.claude/bark/tellme.sh <<'EOF'
 #!/bin/bash
-# Usage: tellme.sh [once|always|stop|status]
-ACTION="${1:-once}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"
+# Usage: tellme.sh [always|once|stop|status]   (default: always)
+ACTION="${1:-always}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"
 ACTIVE=$(ls "$DIR" 2>/dev/null | grep -v '^pending$' | wc -l | tr -d ' ')
 PEND=$( [ -f "$DIR/pending" ] && cat "$DIR/pending" || echo "" )
 case "$ACTION" in
@@ -50,7 +50,7 @@ case "$ACTION" in
   stop)   if [ -z "$PEND" ] && [ "$ACTIVE" = 0 ]; then echo "ℹ️ Nothing is armed; nothing to do."
           else rm -f "$DIR"/*; echo "🔕 Bark notifications disabled (cleared ${ACTIVE} session watcher(s)${PEND:+ + 1 pending})."; fi;;
   status) echo "Pending: ${PEND:-none}; sessions being watched: $ACTIVE";;
-  *) echo "❌ Unknown argument '$ACTION'. Use: (none)|always|stop|status"; exit 1;;
+  *) echo "❌ Unknown argument '$ACTION'. Use: (none = always)|once|stop|status"; exit 1;;
 esac
 find "$DIR" -type f -mtime +7 -delete 2>/dev/null
 EOF
@@ -58,7 +58,7 @@ EOF
 cat > ~/.claude/skills/tellme/SKILL.md <<'EOF'
 ---
 name: tellme
-description: Push a Bark notification to your phone when the current session's task finishes. /tellme = once; /tellme always = every turn; /tellme stop = disable; /tellme status = show state.
+description: Push a Bark notification to your phone when the current session's task finishes. /tellme = every turn (always); /tellme once = next task only; /tellme stop = disable; /tellme status = show state.
 ---
 Do exactly one thing: run the Bash command below, then relay its output to the user verbatim (no additions, nothing else).
 

@@ -4,8 +4,8 @@ Walk away from a long-running Claude Code task and get a push notification on yo
 
 | Command | What it does |
 |---|---|
-| `/tellme` | Push once when the **next** task you send finishes, then auto-disable |
-| `/tellme always` | Push after every turn in this session until you stop it |
+| `/tellme` | Push after every turn in this session until you stop it (same as `/tellme always`) |
+| `/tellme once` | Push once when the **next** task you send finishes, then auto-disable |
 | `/tellme stop` | Disable everything (one-shot and always-on) |
 | `/tellme status` | Show current state |
 
