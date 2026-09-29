@@ -36,16 +36,20 @@ Requires macOS/Linux with Claude Code, `jq` (`brew install jq`) and `node`.
 git clone https://github.com/zkwasm/claude-tellme.git && bash claude-tellme/install.sh <your-bark-key>
 ```
 
-You'll get an "Installed ✅" push. **No Claude Code restart needed** — hooks and skills hot-reload. Type `/tellme` in any session.
+You'll get an "Installed ✅" push. **No Claude Code restart needed** — hooks and skills hot-reload, and every session starts pushing right away.
+
+**Upgrading:** `cd claude-tellme && git pull && bash install.sh <your-bark-key>` (safe to re-run; it never duplicates hooks).
+
+**Mac notifications disappear too fast?** System Settings → Notifications → **Script Editor** → set Alert Style to **Persistent**. They'll stay on screen until you dismiss them.
 
 ## How it works
 
-`/tellme` just writes a tiny state file. A global Claude Code `Stop` hook (`~/.claude/bark/notify.sh`) runs after every turn, checks the state for the current session, and calls the Bark HTTP API with `curl` (and shows a native macOS notification via `osascript` when available). In `once` mode the state deletes itself after the first push. State is per-session; subagent stops are ignored; `curl` has a 10 s timeout and never blocks Claude.
+A global Claude Code `Stop` hook (`~/.claude/bark/notify.sh`) runs after every turn and calls the Bark HTTP API with `curl` (plus a native macOS notification via `osascript` when available). It pushes unless the current session is muted or global mode is off. `/tellme` only writes a tiny per-session state file (`on`, `once` or `off`) under `~/.claude/bark/state/`; a session with no state follows the global switch. Subagent stops are ignored; `curl` has a 10 s timeout and never blocks Claude.
 
 Files installed:
 - `~/.claude/bark/notify.sh` — the Stop hook
 - `~/.claude/bark/tellme.sh` — the command behind the skill
-- `~/.claude/bark/carry.sh` — SessionEnd/SessionStart hook that keeps `/tellme` armed across `/clear`
+- `~/.claude/bark/carry.sh` — SessionEnd/SessionStart hook that carries a session's state across `/clear`
 - `~/.claude/skills/tellme/SKILL.md` — the `/tellme` skill
 - hook entries in `hooks.Stop`, `hooks.SessionEnd` and `hooks.SessionStart` in `~/.claude/settings.json`
 
