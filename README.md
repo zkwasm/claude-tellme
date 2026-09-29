@@ -11,6 +11,17 @@ Walk away from a long-running Claude Code task and get a push notification on yo
 
 The `/tellme` turn itself never pushes — **send `/tellme` first, then send the task**.
 
+### Global mode (no `/tellme` needed)
+
+Prefer notifications everywhere without typing anything in a session (keeps your context clean)? Toggle global mode from any terminal:
+
+```bash
+bash ~/.claude/bark/tellme.sh global on    # every turn in every session pushes
+bash ~/.claude/bark/tellme.sh global off
+```
+
+Tip: `alias tellme='bash ~/.claude/bark/tellme.sh'` in your shell rc, then `tellme global on`. `/tellme stop` also turns global mode off.
+
 ## 1. Phone: install Bark
 
 1. Install **Bark** from the App Store (by Fin) and allow notifications.

@@ -18,8 +18,8 @@ AGENT=\$(echo "\$INPUT" | jq -r '.agent_id // empty')
 DIR="\$HOME/.claude/bark/state"; STATE="\$DIR/\$SID"; PENDING="\$DIR/pending"
 # The /tellme turn itself: bind pending -> this session, don't notify yet
 if [ -f "\$PENDING" ]; then mv -f "\$PENDING" "\$STATE"; exit 0; fi
-[ -f "\$STATE" ] || exit 0
-MODE=\$(cat "\$STATE")
+GLOBAL="\$HOME/.claude/bark/global"   # created by: tellme.sh global on
+if [ -f "\$STATE" ]; then MODE=\$(cat "\$STATE"); elif [ -f "\$GLOBAL" ]; then MODE=global; else exit 0; fi
 CWD=\$(echo "\$INPUT" | jq -r '.cwd // empty'); PROJECT=\$(basename "\${CWD:-\$PWD}")
 MSG=\$(echo "\$INPUT" | jq -r '.last_assistant_message // empty' | tr '\n' ' ' | cut -c1-200)
 [ -n "\$MSG" ] || MSG="Task finished"
@@ -34,23 +34,28 @@ if command -v osascript >/dev/null 2>&1; then
     -e 'display notification (item 1 of argv) with title (item 2 of argv) sound name "Glass"' \\
     -e 'end run' "\$MSG" "Claude Code · \$PROJECT" >/dev/null 2>&1 || true
 fi
-[ "\$MODE" = "always" ] || rm -f "\$STATE"
+[ "\$MODE" = "once" ] && rm -f "\$STATE"
 exit 0
 EOF
 
 cat > ~/.claude/bark/tellme.sh <<'EOF'
 #!/bin/bash
-# Usage: tellme.sh [always|once|stop|status]   (default: always)
-ACTION="${1:-always}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"
+# Usage: tellme.sh [always|once|stop|status|global on|global off]   (default: always)
+ACTION="${1:-always}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"; GLOBAL="$HOME/.claude/bark/global"
 ACTIVE=$(ls "$DIR" 2>/dev/null | grep -v '^pending$' | wc -l | tr -d ' ')
 PEND=$( [ -f "$DIR/pending" ] && cat "$DIR/pending" || echo "" )
 case "$ACTION" in
   once)   echo once > "$DIR/pending";   echo "🔔 Armed: you'll get one push when your next task finishes, then it turns off automatically.";;
   always) echo always > "$DIR/pending"; echo "🔔 Always-on: starting with your next task, every turn in this session will push. Run /tellme stop to disable.";;
-  stop)   if [ -z "$PEND" ] && [ "$ACTIVE" = 0 ]; then echo "ℹ️ Nothing is armed; nothing to do."
-          else rm -f "$DIR"/*; echo "🔕 Bark notifications disabled (cleared ${ACTIVE} session watcher(s)${PEND:+ + 1 pending})."; fi;;
-  status) echo "Pending: ${PEND:-none}; sessions being watched: $ACTIVE";;
-  *) echo "❌ Unknown argument '$ACTION'. Use: (none = always)|once|stop|status"; exit 1;;
+  stop)   if [ -z "$PEND" ] && [ "$ACTIVE" = 0 ] && [ ! -f "$GLOBAL" ]; then echo "ℹ️ Nothing is armed; nothing to do."
+          else rm -f "$DIR"/* "$GLOBAL"; echo "🔕 Bark notifications disabled (cleared ${ACTIVE} session watcher(s)${PEND:+ + 1 pending}; global: off)."; fi;;
+  status) echo "Global: $( [ -f "$GLOBAL" ] && echo on || echo off ); pending: ${PEND:-none}; sessions being watched: $ACTIVE";;
+  global) case "$2" in
+            on)  touch "$GLOBAL"; echo "🌐 Global mode ON: every turn in every Claude Code session will push. Turn off with: tellme.sh global off";;
+            off) rm -f "$GLOBAL"; echo "🌐 Global mode OFF.";;
+            *)   echo "❌ Use: global on|off"; exit 1;;
+          esac;;
+  *) echo "❌ Unknown argument '$ACTION'. Use: (none = always)|once|stop|status|global on|off"; exit 1;;
 esac
 find "$DIR" -type f -mtime +7 -delete 2>/dev/null
 EOF
