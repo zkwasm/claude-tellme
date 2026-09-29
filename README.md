@@ -2,25 +2,25 @@
 
 Walk away from a long-running Claude Code task and get a push notification on your iPhone — plus a native macOS notification on your Mac — the moment it finishes.
 
-| Command | What it does |
+**On by default**: after install, every Claude Code session pushes when a turn finishes — nothing to type, nothing added to your context. Mute the sessions you don't care about.
+
+| Command (inside a session) | What it does |
 |---|---|
-| `/tellme` | Push after every turn in this session until you stop it (same as `/tellme always`) |
-| `/tellme once` | Push once when the **next** task you send finishes, then auto-disable |
-| `/tellme stop` | Disable everything (one-shot and always-on) |
-| `/tellme status` | Show current state |
+| `/tellme off` (or `/tellme stop`) | Mute **this session only**; other sessions keep pushing. Survives `/clear` |
+| `/tellme` | Turn this session back on (every turn pushes) |
+| `/tellme once` | Push once when the **next** task finishes, then fall back to the default |
+| `/tellme status` | Show global state and how many sessions are on / muted |
 
-The `/tellme` turn itself never pushes — **send `/tellme` first, then send the task**.
+The `/tellme` turn itself never pushes.
 
-### Global mode (no `/tellme` needed)
-
-Prefer notifications everywhere without typing anything in a session (keeps your context clean)? Toggle global mode from any terminal:
+### Global switch (from a terminal)
 
 ```bash
-bash ~/.claude/bark/tellme.sh global on    # every turn in every session pushes
-bash ~/.claude/bark/tellme.sh global off
+bash ~/.claude/bark/tellme.sh global off   # only sessions that ran /tellme will push
+bash ~/.claude/bark/tellme.sh global on    # back to the default: every session pushes
 ```
 
-Tip: `alias tellme='bash ~/.claude/bark/tellme.sh'` in your shell rc, then `tellme global on`. `/tellme stop` also turns global mode off.
+Tip: `alias tellme='bash ~/.claude/bark/tellme.sh'` in your shell rc, then `tellme global off`.
 
 ## 1. Phone: install Bark
 

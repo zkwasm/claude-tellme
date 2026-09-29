@@ -6,6 +6,7 @@ command -v jq >/dev/null || { echo "jq is required: brew install jq"; exit 1; }
 command -v node >/dev/null || { echo "node is required"; exit 1; }
 set -e
 mkdir -p ~/.claude/bark/state ~/.claude/skills/tellme
+rm -f ~/.claude/bark/global
 
 cat > ~/.claude/bark/notify.sh <<EOF
 #!/bin/bash
@@ -18,8 +19,10 @@ AGENT=\$(echo "\$INPUT" | jq -r '.agent_id // empty')
 DIR="\$HOME/.claude/bark/state"; STATE="\$DIR/\$SID"; PENDING="\$DIR/pending"
 # The /tellme turn itself: bind pending -> this session, don't notify yet
 if [ -f "\$PENDING" ]; then mv -f "\$PENDING" "\$STATE"; exit 0; fi
-GLOBAL="\$HOME/.claude/bark/global"   # created by: tellme.sh global on
-if [ -f "\$STATE" ]; then MODE=\$(cat "\$STATE"); elif [ -f "\$GLOBAL" ]; then MODE=global; else exit 0; fi
+GLOBAL_OFF="\$HOME/.claude/bark/global-off"   # created by: tellme.sh global off
+if [ -f "\$STATE" ]; then MODE=\$(cat "\$STATE"); elif [ ! -f "\$GLOBAL_OFF" ]; then MODE=global; else exit 0; fi
+# Muted session: refresh mtime so the 7-day cleanup never un-mutes a long-running session
+[ "\$MODE" = off ] && { touch "\$STATE"; exit 0; }
 CWD=\$(echo "\$INPUT" | jq -r '.cwd // empty'); PROJECT=\$(basename "\${CWD:-\$PWD}")
 MSG=\$(echo "\$INPUT" | jq -r '.last_assistant_message // empty' | tr '\n' ' ' | cut -c1-200)
 [ -n "\$MSG" ] || MSG="Task finished"
@@ -34,28 +37,28 @@ if command -v osascript >/dev/null 2>&1; then
     -e 'display notification (item 1 of argv) with title (item 2 of argv) sound name "Glass"' \\
     -e 'end run' "\$MSG" "Claude Code · \$PROJECT" >/dev/null 2>&1 || true
 fi
-[ "\$MODE" = "once" ] && rm -f "\$STATE"
+case "\$MODE" in once) rm -f "\$STATE";; always) touch "\$STATE";; esac
 exit 0
 EOF
 
 cat > ~/.claude/bark/tellme.sh <<'EOF'
 #!/bin/bash
-# Usage: tellme.sh [always|once|stop|status|global on|global off]   (default: always)
-ACTION="${1:-always}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"; GLOBAL="$HOME/.claude/bark/global"
-ACTIVE=$(ls "$DIR" 2>/dev/null | grep -v '^pending$' | wc -l | tr -d ' ')
+# Usage: tellme.sh [always|once|off|stop|status|global on|global off]   (default: always)
+ACTION="${1:-always}"; DIR="$HOME/.claude/bark/state"; mkdir -p "$DIR"; GLOBAL_OFF="$HOME/.claude/bark/global-off"
+ACTIVE=$(grep -lxE 'once|always' "$DIR"/* 2>/dev/null | grep -v '/pending$' | wc -l | tr -d ' ')
+MUTED=$(grep -lx off "$DIR"/* 2>/dev/null | grep -v '/pending$' | wc -l | tr -d ' ')
 PEND=$( [ -f "$DIR/pending" ] && cat "$DIR/pending" || echo "" )
 case "$ACTION" in
   once)   echo once > "$DIR/pending";   echo "🔔 Armed: you'll get one push when your next task finishes, then it turns off automatically.";;
-  always) echo always > "$DIR/pending"; echo "🔔 Always-on: starting with your next task, every turn in this session will push. Run /tellme stop to disable.";;
-  stop)   if [ -z "$PEND" ] && [ "$ACTIVE" = 0 ] && [ ! -f "$GLOBAL" ]; then echo "ℹ️ Nothing is armed; nothing to do."
-          else rm -f "$DIR"/* "$GLOBAL"; echo "🔕 Bark notifications disabled (cleared ${ACTIVE} session watcher(s)${PEND:+ + 1 pending}; global: off)."; fi;;
-  status) echo "Global: $( [ -f "$GLOBAL" ] && echo on || echo off ); pending: ${PEND:-none}; sessions being watched: $ACTIVE";;
+  always) echo always > "$DIR/pending"; echo "🔔 On: starting with your next task, every turn in this session will push. /tellme off to mute this session.";;
+  off|stop) echo off > "$DIR/pending"; echo "🔕 Muted this session only — other sessions still push. /tellme to turn it back on.";;
+  status) echo "Global: $( [ -f "$GLOBAL_OFF" ] && echo off || echo on ); pending: ${PEND:-none}; sessions explicitly on: $ACTIVE; muted: $MUTED";;
   global) case "$2" in
-            on)  touch "$GLOBAL"; echo "🌐 Global mode ON: every turn in every Claude Code session will push. Turn off with: tellme.sh global off";;
-            off) rm -f "$GLOBAL"; echo "🌐 Global mode OFF.";;
+            on)  rm -f "$GLOBAL_OFF"; echo "🌐 Global mode ON: every session pushes unless muted with /tellme off.";;
+            off) touch "$GLOBAL_OFF"; echo "🌐 Global mode OFF: only sessions that ran /tellme will push.";;
             *)   echo "❌ Use: global on|off"; exit 1;;
           esac;;
-  *) echo "❌ Unknown argument '$ACTION'. Use: (none = always)|once|stop|status|global on|off"; exit 1;;
+  *) echo "❌ Unknown argument '$ACTION'. Use: (none = on)|once|off|status|global on|off"; exit 1;;
 esac
 find "$DIR" -type f -mtime +7 -delete 2>/dev/null
 EOF
@@ -63,7 +66,7 @@ EOF
 cat > ~/.claude/skills/tellme/SKILL.md <<'EOF'
 ---
 name: tellme
-description: Push a Bark notification to your phone when the current session's task finishes. /tellme = every turn (always); /tellme once = next task only; /tellme stop = disable; /tellme status = show state.
+description: Push a Bark notification to your phone when the current session's task finishes. On for every session by default. /tellme off = mute this session; /tellme = turn this session back on; /tellme once = next task only; /tellme status = show state.
 ---
 Do exactly one thing: run the Bash command below, then relay its output to the user verbatim (no additions, nothing else).
 
