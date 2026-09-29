@@ -34,15 +34,16 @@ You'll get an "Installed ✅" push. **No Claude Code restart needed** — hooks 
 Files installed:
 - `~/.claude/bark/notify.sh` — the Stop hook
 - `~/.claude/bark/tellme.sh` — the command behind the skill
+- `~/.claude/bark/carry.sh` — SessionEnd/SessionStart hook that keeps `/tellme` armed across `/clear`
 - `~/.claude/skills/tellme/SKILL.md` — the `/tellme` skill
-- one entry appended to `hooks.Stop` in `~/.claude/settings.json`
+- hook entries in `hooks.Stop`, `hooks.SessionEnd` and `hooks.SessionStart` in `~/.claude/settings.json`
 
 ## Uninstall
 
 ```bash
 rm -rf ~/.claude/bark ~/.claude/skills/tellme
 ```
-then remove the `notify.sh` entry from `hooks.Stop` in `~/.claude/settings.json`.
+then remove the `notify.sh` / `carry.sh` entries from `hooks` in `~/.claude/settings.json`.
 
 ## License
 

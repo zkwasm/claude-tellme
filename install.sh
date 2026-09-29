@@ -66,14 +66,38 @@ Do exactly one thing: run the Bash command below, then relay its output to the u
 bash ~/.claude/bark/tellme.sh "$ARGUMENTS"
 ```
 EOF
+cat > ~/.claude/bark/carry.sh <<'EOF'
+#!/bin/bash
+# SessionEnd/SessionStart hook: carry /tellme state across /clear (which starts a new session_id).
+INPUT=$(cat)
+command -v jq >/dev/null || exit 0
+EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+SID=$(echo "$INPUT" | jq -r '.session_id // empty')
+DIR="$HOME/.claude/bark/state"; CARRY="$DIR/carry"
+[ -n "$SID" ] || exit 0
+case "$EVENT" in
+  SessionEnd)
+    [ "$(echo "$INPUT" | jq -r '.reason // empty')" = clear ] && [ -f "$DIR/$SID" ] && mv -f "$DIR/$SID" "$CARRY";;
+  SessionStart)
+    [ "$(echo "$INPUT" | jq -r '.source // empty')" = clear ] && [ -f "$CARRY" ] && mv -f "$CARRY" "$DIR/$SID";;
+esac
+exit 0
+EOF
 chmod +x ~/.claude/bark/*.sh
 
 S=~/.claude/settings.json; [ -f "$S" ] || echo '{}' > "$S"
 node -e '
 const fs=require("fs"),p=process.argv[1];const s=JSON.parse(fs.readFileSync(p));
-s.hooks??={};s.hooks.Stop??=[];
-const cmd="bash \"$HOME/.claude/bark/notify.sh\"";
-if(!JSON.stringify(s.hooks.Stop).includes(cmd)) s.hooks.Stop.push({hooks:[{type:"command",command:cmd,timeout:10}]});
+s.hooks??={};
+const add=(ev,cmd)=>{
+  s.hooks[ev]??=[];
+  // drop any existing copies of our command (also cleans up duplicates from older installers)
+  s.hooks[ev]=s.hooks[ev].map(g=>({...g,hooks:(g.hooks||[]).filter(h=>h.command!==cmd)})).filter(g=>g.hooks.length);
+  s.hooks[ev].push({hooks:[{type:"command",command:cmd,timeout:10}]});
+};
+add("Stop","bash \"$HOME/.claude/bark/notify.sh\"");
+add("SessionEnd","bash \"$HOME/.claude/bark/carry.sh\"");
+add("SessionStart","bash \"$HOME/.claude/bark/carry.sh\"");
 fs.writeFileSync(p,JSON.stringify(s,null,2)+"\n");' "$S"
 
 curl -s -m 10 -G "https://api.day.app/$KEY/" --data-urlencode "title=Claude Code" --data-urlencode "body=Installed ✅" >/dev/null || true
